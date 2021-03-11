@@ -36,7 +36,14 @@
     "PositionLimit": 1000
   },
   "Traders": {
+<<<<<<< HEAD
     "Example": "secret",
     "TraderOne": "secret"
+=======
+    "trader1": "secret",
+    "trader2": "secret",
+    "trader3": "secret",
+    "trader4": "secret"
+>>>>>>> 5643251... Add two new trading bots
   }
 }
