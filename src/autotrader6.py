@@ -2,6 +2,7 @@ import asyncio
 import itertools
 
 from typing import List
+import numpy as np
 
 from ready_trader_one import BaseAutoTrader, Instrument, Lifespan, Side
 
@@ -94,6 +95,11 @@ class AutoTrader(BaseAutoTrader):
                                                                     int(self.get_remaining_volume()/2) - LOT_SIZE)
             new_ask_volume = LOT_SIZE if self.position < 0 else min(max(LOT_SIZE, abs(self.position)),
                                                                     int(self.get_remaining_volume()/2) - LOT_SIZE)
+
+            positions = self.position + new_bid_volume + sum(self.bids_vol) + np.abs(new_ask_volume - sum(self.asks_vol))
+            if positions > POSITION_LIMIT or self.position + new_bid_volume + sum(self.bids_vol) > POSITION_LIMIT or self.position - new_ask_volume - sum(self.asks_vol) < - POSITION_LIMIT:
+                threshold = POSITION_LIMIT - positions
+                new_bid_volume = new_ask_volume = threshold // 2
 
             if self.bids[0] == 0 and new_bid_price != 0 \
                     and self.position + new_bid_volume + sum(self.bids_vol) < POSITION_LIMIT:
