@@ -1,6 +1,6 @@
 {
   "Engine": {
-    "MarketDataFile": "data/market_data.csv",
+    "MarketDataFile": "data/market_data4.csv",
     "MarketOpenDelay": 5.0,
     "MatchEventsFile": "match_events.csv",
     "ScoreBoardFile": "score_board.csv",
@@ -43,7 +43,12 @@
     "trader1": "secret",
     "trader2": "secret",
     "trader3": "secret",
+<<<<<<< HEAD
     "trader4": "secret"
 >>>>>>> 5643251... Add two new trading bots
+=======
+    "trader4": "secret",
+    "trader5": "secret"
+>>>>>>> 168faac... Add more stable bot 5
   }
 }
