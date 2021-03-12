@@ -48,7 +48,12 @@
 >>>>>>> 5643251... Add two new trading bots
 =======
     "trader4": "secret",
+<<<<<<< HEAD
     "trader5": "secret"
 >>>>>>> 168faac... Add more stable bot 5
+=======
+    "trader5": "secret",
+    "trader6": "secret"
+>>>>>>> 56228af... Add bot 6
   }
 }
