@@ -25,9 +25,10 @@ class AutoTrader(BaseAutoTrader):
         super().__init__(loop, team_name, secret)
         self.order_ids = itertools.count(1)
         self.bids = [0,0]
+        self.bids_vol = [0,0]
         self.asks = [0,0]
-        self.ask_price = self.bid_price = self.position = self.active_volume = 0
-        self.active_ask = self.active_bid = 0
+        self.asks_vol = [0,0]
+        self.ask_price = self.bid_price = self.position = 0
 
     def on_error_message(self, client_order_id: int, error_message: bytes) -> None:
         """Called when the exchange detects an error.
@@ -52,21 +53,21 @@ class AutoTrader(BaseAutoTrader):
             new_bid_price = bid_prices[0] if bid_prices[0] != 0 else 0
             new_ask_price = ask_prices[0] if ask_prices[0] != 0 else 0
 
-            new_bid_volume = LOT_SIZE if self.position > 0 else min(max(LOT_SIZE, abs(self.position)),
-                                                            (VOLUME_LIMIT - self.active_volume - LOT_SIZE))
-            new_ask_volume = LOT_SIZE if self.position < 0 else min(max(LOT_SIZE, abs(self.position)),
-                                                            (VOLUME_LIMIT - self.active_volume - LOT_SIZE))
-
             if self.bids[0] != 0 and new_bid_price not in (self.bid_price, 0):
                 if new_bid_price == self.bid_price - TICK_SIZE_IN_CENTS:
                     self.send_cancel_order(self.bids[0])
                     self.bids[0] = self.bids[1]
+                    self.bids_vol[0] = self.bids_vol[1]
                     self.bids[1] = 0
+                    self.bids_vol[1] = 0
                     self.bid_price = new_bid_price
                 elif new_bid_price == self.bid_price + TICK_SIZE_IN_CENTS:
                     self.send_cancel_order(self.bids[1])
                     self.bids[1] = self.bids[0]
+                    self.bids_vol[1] = self.bids_vol[0]
                     self.bids[0] = 0
+                    self.bids_vol[0] = 0
+
                 else:
                     self.send_cancel_order(self.bids[0])
                     self.send_cancel_order(self.bids[1])
@@ -75,48 +76,59 @@ class AutoTrader(BaseAutoTrader):
                 if new_ask_price == self.ask_price + TICK_SIZE_IN_CENTS:
                     self.send_cancel_order(self.asks[0])
                     self.asks[0] = self.asks[1]
+                    self.asks_vol[0] = self.asks_vol[1]
                     self.asks[1] = 0
+                    self.asks_vol[1] = 0
                     self.ask_price = new_ask_price
                 elif new_ask_price == self.ask_price - TICK_SIZE_IN_CENTS:
                     self.send_cancel_order(self.asks[1])
                     self.asks[1] = self.asks[0]
+                    self.asks_vol[1] = self.asks_vol[0]
                     self.asks[0] = 0
+                    self.asks_vol[0] = 0
                 else:
                     self.send_cancel_order(self.asks[0])
                     self.send_cancel_order(self.asks[1])
 
+            new_bid_volume = LOT_SIZE if self.position > 0 else min(max(LOT_SIZE, abs(self.position)),
+                                                                    int(self.get_remaining_volume()/2) - LOT_SIZE)
+            new_ask_volume = LOT_SIZE if self.position < 0 else min(max(LOT_SIZE, abs(self.position)),
+                                                                    int(self.get_remaining_volume()/2) - LOT_SIZE)
+
             if self.bids[0] == 0 and new_bid_price != 0 \
-                    and self.position + new_bid_volume + self.active_bid < POSITION_LIMIT:
+                    and self.position + new_bid_volume + sum(self.bids_vol) < POSITION_LIMIT:
                 self.bids[0] = next(self.order_ids)
                 self.bid_price = new_bid_price
                 self.send_insert_order(self.bids[0], Side.BUY, new_bid_price, new_bid_volume, Lifespan.GOOD_FOR_DAY)
-                self.active_bid += new_bid_volume
-                self.active_volume += new_bid_volume
+                self.bids_vol[0] = new_bid_volume
 
             if self.bids[1] == 0 and new_bid_price != 0 \
-                    and self.position + new_bid_volume + self.active_bid < POSITION_LIMIT:
+                    and self.position + new_bid_volume + sum(self.bids_vol) < POSITION_LIMIT:
                 self.bids[1] = next(self.order_ids)
                 self.send_insert_order(self.bids[1], Side.BUY, new_bid_price - TICK_SIZE_IN_CENTS, new_bid_volume,
                                        Lifespan.GOOD_FOR_DAY)
-                self.active_bid += new_bid_volume
-                self.active_volume += new_bid_volume
+                self.bids_vol[0] = new_bid_volume
 
             if self.asks[0] == 0 and new_ask_price != 0 \
-                    and self.position - new_ask_volume - self.active_ask > -POSITION_LIMIT:
+                    and self.position - new_ask_volume - sum(self.asks_vol) > -POSITION_LIMIT:
                 self.asks[0] = next(self.order_ids)
                 self.ask_price = new_ask_price
                 self.send_insert_order(self.asks[0], Side.SELL, new_ask_price, new_ask_volume, Lifespan.GOOD_FOR_DAY)
-                self.active_ask += new_ask_volume
-                self.active_volume += new_ask_volume
+                self.asks_vol[0] = new_ask_volume
 
             if self.asks[1] == 0 and new_ask_price != 0 \
-                    and self.position - new_ask_volume - self.active_ask > -POSITION_LIMIT:
+                    and self.position - new_ask_volume - sum(self.asks_vol) > -POSITION_LIMIT:
                 self.asks[1] = next(self.order_ids)
                 self.send_insert_order(self.asks[1], Side.SELL, new_ask_price + TICK_SIZE_IN_CENTS, new_ask_volume,
                                        Lifespan.GOOD_FOR_DAY)
-                self.active_ask += new_ask_volume
-                self.active_volume += new_ask_volume
+                self.asks_vol[1] = new_ask_volume
 
+    def get_remaining_volume(self):
+        volume = 0
+        for i in range(len(self.bids_vol)):
+            volume += self.bids_vol[i]
+            volume += self.asks_vol[i]
+        return VOLUME_LIMIT - volume
 
     def on_order_filled_message(self, client_order_id: int, price: int, volume: int) -> None:
         """Called when when of your orders is filled, partially or fully.
@@ -127,12 +139,16 @@ class AutoTrader(BaseAutoTrader):
         """
         if client_order_id in self.bids:
             self.position += volume
-            self.active_volume -= volume
-            self.active_bid -= volume
+            for i in range(2):
+                if client_order_id == self.bids[i]:
+                    self.bids_vol[i] -= volume
+                    break
         elif client_order_id in self.asks:
             self.position -= volume
-            self.active_volume -= volume
-            self.active_ask -= volume
+            for i in range(2):
+                if client_order_id == self.asks[i]:
+                    self.asks_vol[i] -= volume
+                    break
 
     def on_order_status_message(self, client_order_id: int, fill_volume: int, remaining_volume: int,
                                 fees: int) -> None:
@@ -149,10 +165,14 @@ class AutoTrader(BaseAutoTrader):
             if client_order_id in self.bids:
                 if client_order_id == self.bids[0]:
                     self.bids[0] = 0
+                    self.bids_vol[0] = 0
                 else:
                     self.bids[1] = 0
+                    self.bids_vol[1] = 0
             elif client_order_id in self.asks:
                 if client_order_id == self.asks[0]:
                     self.asks[0] = 0
+                    self.asks_vol[0] = 0
                 else:
                     self.asks[1] = 0
+                    self.asks_vol[1] = 0
