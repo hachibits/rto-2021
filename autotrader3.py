@@ -5,7 +5,7 @@ from typing import List
 
 from ready_trader_one import BaseAutoTrader, Instrument, Lifespan, Side
 
-
+VOLUME_LIMIT = 200
 LOT_SIZE = 10
 POSITION_LIMIT = 1000
 TICK_SIZE_IN_CENTS = 100
@@ -51,8 +51,10 @@ class AutoTrader(BaseAutoTrader):
             new_bid_price = bid_prices[0] if bid_prices[0] != 0 else 0
             new_ask_price = ask_prices[0] if ask_prices[0] != 0 else 0
 
-            new_bid_volume = LOT_SIZE if self.position > 0 else max(LOT_SIZE, -self.position)
-            new_ask_volume = LOT_SIZE if self.position < 0 else max(LOT_SIZE, self.position)
+            new_bid_volume = LOT_SIZE if self.position > 0 else min(max(LOT_SIZE, abs(self.position)),
+                                                                    VOLUME_LIMIT - LOT_SIZE)
+            new_ask_volume = LOT_SIZE if self.position < 0 else min(max(LOT_SIZE, abs(self.position)),
+                                                                    VOLUME_LIMIT - LOT_SIZE)
 
             if self.bid_id != 0 and new_bid_price not in (self.bid_price, 0):
                 self.send_cancel_order(self.bid_id)
