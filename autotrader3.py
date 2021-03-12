@@ -51,8 +51,8 @@ class AutoTrader(BaseAutoTrader):
             new_bid_price = bid_prices[0] if bid_prices[0] != 0 else 0
             new_ask_price = ask_prices[0] if ask_prices[0] != 0 else 0
 
-            new_bid_volume = LOT_SIZE if self.position > 0 else 2 * LOT_SIZE
-            new_ask_volume = LOT_SIZE if self.position < 0 else 2 * LOT_SIZE
+            new_bid_volume = LOT_SIZE if self.position > 0 else max(LOT_SIZE, -self.position)
+            new_ask_volume = LOT_SIZE if self.position < 0 else max(LOT_SIZE, self.position)
 
             if self.bid_id != 0 and new_bid_price not in (self.bid_price, 0):
                 self.send_cancel_order(self.bid_id)
@@ -61,13 +61,13 @@ class AutoTrader(BaseAutoTrader):
                 self.send_cancel_order(self.ask_id)
                 self.ask_id = 0
 
-            if self.bid_id == 0 and new_bid_price != 0 and self.position < POSITION_LIMIT:
+            if self.bid_id == 0 and new_bid_price != 0 and self.position + new_bid_volume < POSITION_LIMIT:
                 self.bid_id = next(self.order_ids)
                 self.bid_price = new_bid_price
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, new_bid_volume, Lifespan.GOOD_FOR_DAY)
                 self.bids.add(self.bid_id)
 
-            if self.ask_id == 0 and new_ask_price != 0 and self.position > -POSITION_LIMIT:
+            if self.ask_id == 0 and new_ask_price != 0 and self.position - new_ask_volume > -POSITION_LIMIT:
                 self.ask_id = next(self.order_ids)
                 self.ask_price = new_ask_price
                 self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, new_ask_volume, Lifespan.GOOD_FOR_DAY)

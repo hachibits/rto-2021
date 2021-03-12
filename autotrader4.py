@@ -24,8 +24,8 @@ class AutoTrader(BaseAutoTrader):
         """Initialise a new instance of the AutoTrader class."""
         super().__init__(loop, team_name, secret)
         self.order_ids = itertools.count(1)
-        self.bids = set()
-        self.asks = set()
+        self.bids = []
+        self.asks = []
         self.ask_id = self.ask_price = self.bid_id = self.bid_price = self.position = 0
 
     def on_error_message(self, client_order_id: int, error_message: bytes) -> None:
@@ -48,9 +48,27 @@ class AutoTrader(BaseAutoTrader):
         price levels.
         """
         if instrument == Instrument.FUTURE:
-            price_adjustment = - (self.position // LOT_SIZE) * TICK_SIZE_IN_CENTS
-            new_bid_price = bid_prices[0] + price_adjustment if bid_prices[0] != 0 else 0
-            new_ask_price = ask_prices[0] + price_adjustment if ask_prices[0] != 0 else 0
+            new_bid_price = bid_prices[0] if bid_prices[0] != 0 else 0
+            new_ask_price = ask_prices[0] if ask_prices[0] != 0 else 0
+
+            if self.bid_price == 0 && new_bid_price != 0:
+                self.bid_price = new_bid_price
+                for i in range(5):
+                    self.bid_id = next(self.order_ids)
+                    self.bid_price = new_bid_price - i * TICK_SIZE_IN_CENTS
+                    self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, LOT_SIZE, Lifespan.GOOD_FOR_DAY)
+                    self.bids.add(self.bid_id)
+
+            if self.ask_price == 0 && new_ask_price != 0:
+                self.ask_price = new_ask_price
+                for i in range(5):
+                    self.ask_id = next(self.order_ids)
+                    self.ask_price = new_ask_price + i * TICK_SIZE_IN_CENTS
+                    self.send_insert_order(self.bid_id, Side.SELL, new_ask_price, LOT_SIZE, Lifespan.GOOD_FOR_DAY)
+                    self.ask_price.add(self.ask_id)
+
+            if new_bid_price != self.bid_price:
+
 
             if self.bid_id != 0 and new_bid_price not in (self.bid_price, 0):
                 self.send_cancel_order(self.bid_id)
