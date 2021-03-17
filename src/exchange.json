@@ -26,7 +26,7 @@
   },
   "Instrument": {
     "EtfClamp": 0.002,
-    "TickSize": 1.00
+    "TickSize": 1.0
   },
   "Limits": {
     "ActiveOrderCountLimit": 10,
@@ -41,6 +41,7 @@
     "trader3": "secret",
     "trader4": "secret",
     "trader5": "secret",
-    "trader6": "secret"
+    "trader6": "secret",
+    "trader7": "secret"
   }
 }
